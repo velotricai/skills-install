@@ -8,25 +8,14 @@ body:
       value: |
         ## 欢迎加入 Velotric AI Skill 平台 👋
 
-        填完这份表单提交后，**1 分钟内自动给你发邀请邮件**（GitHub 注册时用的邮箱）。
-        你点 Accept 后就能继续装 velotric skills。
+        **直接点底部 Submit 即可**——机器人会自动用你当前登录的 GitHub 账号给你发邀请，不需要你填任何信息。
 
-        如果是 AI 帮你打开这个页面，直接拉到底部点 **Submit**——大部分内容已经预填好。
+        提交后等约 30 秒，机器人会评论这个 issue 告诉你结果。
+        然后去你 GitHub 注册邮箱查邀请邮件，点 **Accept invitation** 就完事。
 
-  - type: input
-    id: github_username
+  - type: textarea
+    id: purpose
     attributes:
-      label: 你的 GitHub 用户名
-      description: |
-        ⚠️ 注意：是 GitHub 上的 **username**，不是邮箱地址。
-        比如 `PerryChen`、`AdamWang` 这种。可以在 [github.com/settings/profile](https://github.com/settings/profile) 看到。
-      placeholder: 例如 AdamWang
-    validations:
-      required: true
-
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        提交后等几秒，机器人会评论你这个 issue 告诉你结果。
-        然后去你的 GitHub 注册邮箱查邀请邮件，点 **Accept invitation**。
+      label: 想用 velotric skills 做什么？（可选，跳过也行）
+      description: 一句话即可，让我们了解你的角色 + 给你推荐合适 skill
+      placeholder: 我做产品，想用 PRD 检查 skill / 我是工程，想分享我的 skill 给团队
