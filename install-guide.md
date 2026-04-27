@@ -1,4 +1,4 @@
-# Velotric Skills 安装指南（v0.8）
+# Velotric Skills 安装指南（v0.8.2）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
@@ -125,7 +125,13 @@ gh repo clone velotricai/velotric-skills ~/velotric-skills
 bash ~/velotric-skills/velotric-skill-meta/scripts/install.sh
 ```
 
-`install.sh` 默认会装 **velotric-skill-meta + personal-adam-business-thinking**——这样用户装完立即有可用的 skill，不需要再问"我能用什么"。
+`install.sh` 默认只装 **velotric-skill-meta**。业务 skill 按需安装，避免新同事一上来装一堆暂时用不到的东西。
+
+如果用户当前就是招聘 / HR 场景，继续执行：
+
+```bash
+bash ~/velotric-skills/velotric-skill-meta/scripts/install.sh --add ops-hiring-workflow
+```
 
 ### Windows PowerShell 分支
 
@@ -135,7 +141,15 @@ gh repo clone velotricai/velotric-skills $DefaultHome
 powershell -ExecutionPolicy Bypass -File "$DefaultHome\velotric-skill-meta\scripts\install.ps1"
 ```
 
-`install.ps1` 默认会装 **velotric-skill-meta + personal-adam-business-thinking**，并注册 PowerShell profile 函数：`vsk-update` / `vsk-list` / `vsk-add` / `vsk-remove`。
+`install.ps1` 默认只装 **velotric-skill-meta**，并注册 PowerShell profile 函数：`vsk-update` / `vsk-list` / `vsk-add` / `vsk-remove`。
+
+如果用户当前就是招聘 / HR 场景，继续执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$DefaultHome\velotric-skill-meta\scripts\install.ps1" -Add ops-hiring-workflow
+```
+
+> ⚠️ **Junction 失败回退提示**：如果 install 输出 `junction failed, falling back to copy`（多发生在无管理员权限或跨卷场景），后续 `vsk-update` 拉到的更新**不会**自动反映到 skill 加载目录——必须重新跑 `install.ps1` 才能生效。建议解决方法：以管理员身份运行 PowerShell 重装一次，让 Junction 创建成功，之后 `vsk-update` 就是即时生效。
 
 ---
 
@@ -146,7 +160,7 @@ powershell -ExecutionPolicy Bypass -File "$DefaultHome\velotric-skill-meta\scrip
 ```bash
 ls -la ~/velotric-skills/.git >/dev/null && echo "✓ 仓库已就位"
 ls ~/.agents/skills/velotric-skill-meta >/dev/null && echo "✓ velotric-skill-meta 已链接"
-ls ~/.agents/skills/personal-adam-business-thinking >/dev/null && echo "✓ Adam 商业判断模型已链接"
+test -e ~/.agents/skills/ops-hiring-workflow && echo "✓ ops-hiring-workflow 已链接（如果你选择安装招聘 skill）" || true
 ```
 
 ### Windows PowerShell 分支
@@ -154,7 +168,7 @@ ls ~/.agents/skills/personal-adam-business-thinking >/dev/null && echo "✓ Adam
 ```powershell
 Test-Path "$DefaultHome\.git"
 Test-Path "$env:USERPROFILE\.agents\skills\velotric-skill-meta\SKILL.md"
-Test-Path "$env:USERPROFILE\.agents\skills\personal-adam-business-thinking\SKILL.md"
+if (Test-Path "$env:USERPROFILE\.agents\skills\ops-hiring-workflow\SKILL.md") { "✓ ops-hiring-workflow 已链接（如果你选择安装招聘 skill）" }
 Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 ```
 
@@ -168,22 +182,20 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 > "🎉 装好了，<用户名字>！
 >
-> 你现在已经可以用 Adam 的创始人视角商业判断模型了——他是 Velotric 的 CEO，把他多年商业思考做成了一个 AI skill。
+> 你现在已经装好 Velotric 的 skill 管理入口。接下来先让 AI 列出公司可用 skill，再按你的角色安装具体 skill。
 >
 > **请你做两件事**：
 > 1. 关掉当前 Codex 窗口（Cmd+Q），重开
 > 2. 跟它说一句话试试看：
 >
 >    \`\`\`
->    用 personal-adam-business-thinking 帮我看下这件事：[粘贴一段你最近在思考的业务判断、增长方案、品牌决策、产品方向 …… 任何一段]
+>    公司有什么 skill？我是做 [你的岗位/场景] 的，推荐我装哪个。
 >    \`\`\`
->
-> 它会用 Adam 的视角给你判断 + 提出"真正的矛盾"+ 下一步建议。
 >
 > 这是你今天接下来 30 秒能验证装上是否成功的最快方式。"
 
-如果用户说"我没什么要判断的"，让他试这个：
-> "粘下面这段试试：'我们想做一个针对欧洲市场的中端电助力车，预算 1500 万，6 个月内出第一批。'"
+如果用户是招聘 / HR 场景，让他试这个：
+> "用 ops-hiring-workflow 帮我初始化一个岗位：[岗位名 + 简单背景]"
 
 ---
 
@@ -203,7 +215,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8
+**版本**：v0.8.2
 **更新**：2026-04-27
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@perry-czp / @velotricai/platform-maintainers

@@ -28,7 +28,7 @@ https://raw.githubusercontent.com/velotricai/skills-install/main/install-guide.m
 
 - "公司有什么 skill" — 浏览
 - "帮我做个 skill 看周报" — 创建
-- "用 personal-adam-business-thinking 看这个商业判断" — 直接调用
+- "用 ops-hiring-workflow 帮我筛这批简历" — 直接调用业务 skill
 - "velotric 有更新吗" — 同步新版本
 - "把我这个 skill 发给团队" — 发布到公司仓库
 
