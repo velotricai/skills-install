@@ -218,4 +218,4 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 **版本**：v0.8.2
 **更新**：2026-04-27
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
-**维护**：@perry-czp / @velotricai/platform-maintainers
+**维护**：@PerryChen / @velotricai/platform-maintainers
