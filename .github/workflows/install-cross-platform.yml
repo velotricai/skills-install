@@ -103,6 +103,7 @@ jobs:
       - name: Run install.ps1 with isolated USERPROFILE
         shell: pwsh
         env:
+          HOME: ${{ runner.temp }}\velotric-home
           USERPROFILE: ${{ runner.temp }}\velotric-home
         run: |
           $ErrorActionPreference = "Stop"
@@ -119,10 +120,10 @@ jobs:
             throw "velotric-skill-meta was not installed into .claude"
           }
 
-          $installed = Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt" |
+          $installed = @(Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt" |
             Where-Object { $_ -and -not $_.Trim().StartsWith("#") } |
             ForEach-Object { $_.Trim() } |
-            Where-Object { $_ }
+            Where-Object { $_ })
           if (($installed.Count -ne 1) -or ($installed[0] -ne "velotric-skill-meta")) {
             throw "Expected only velotric-skill-meta to be installed; got: $($installed -join ', ')"
           }
