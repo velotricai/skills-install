@@ -118,7 +118,7 @@ jobs:
             echo "error=$(cat /tmp/invite-err)" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 邀请成功 → 评论
+      - name: 邀请成功 → 评论 issue
         if: steps.invite.outputs.invited == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -137,6 +137,41 @@ jobs:
           gh issue close "$ISSUE_NUMBER" \
             --repo "${{ github.repository }}" \
             --reason "completed"
+
+      - name: 邀请成功 → 飞书通知 perry
+        if: steps.invite.outputs.invited == 'true' && env.FEISHU_WEBHOOK != ''
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+          USER_NAME: ${{ steps.verify.outputs.user_name }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          # 飞书 incoming webhook —— 简单文本格式，含关键词 "velotricai" 通过签名校验
+          MESSAGE="🎉 velotricai 自动入组通知\n\nGitHub 用户：@$USERNAME ($USER_NAME)\n申请人 issue 作者：@$ISSUE_AUTHOR\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL\n\n如果不认识这个人，去 https://github.com/orgs/velotricai/people 找到 ta 后点 ⋯ → Remove from organization"
+
+          # 转 JSON 安全字符串
+          PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
+
+          curl -s -X POST -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$FEISHU_WEBHOOK" | head -200
+
+      - name: 邀请失败 → 飞书告警
+        if: steps.invite.outputs.invited == 'false' && env.FEISHU_WEBHOOK != ''
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+          ERROR: ${{ steps.invite.outputs.error }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          MESSAGE="⚠️ velotricai 自动入组失败\n\n申请用户：@$USERNAME\n错误：$ERROR\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL"
+
+          PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
+
+          curl -s -X POST -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$FEISHU_WEBHOOK" | head -200
 
       - name: 邀请失败 → 提示联系 perry
         if: steps.invite.outputs.invited == 'false'

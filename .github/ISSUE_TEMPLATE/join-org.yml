@@ -24,35 +24,6 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: department
-    attributes:
-      label: 部门
-      options:
-        - 产品
-        - 工程
-        - 增长
-        - 运营
-        - 销售
-        - 客服
-        - 行政
-        - 其他
-    validations:
-      required: true
-
-  - type: input
-    id: work_email
-    attributes:
-      label: 工作邮箱（可选，做联系用）
-      placeholder: name@velotric.com
-
-  - type: textarea
-    id: purpose
-    attributes:
-      label: 你想用 velotric skills 做什么？（可选）
-      description: 一句话即可，帮我们给你推荐合适的 skill
-      placeholder: 我想用 PRD 检查 skill / 想分享我的 skill 给团队 / etc
-
   - type: markdown
     attributes:
       value: |
