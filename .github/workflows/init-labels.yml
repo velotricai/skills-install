@@ -1,0 +1,56 @@
+name: Init repository labels
+
+# 仓库初始化时一次性创建必需 label
+# 触发：手动 dispatch，或新建仓库时自动跑（push 到 main 触发）
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/init-labels.yml'
+
+permissions:
+  issues: write
+
+jobs:
+  ensure-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 创建/更新必需 label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # 已知的 label 列表 + 颜色 + 描述
+          # 格式: name|color|description
+          declare -a LABELS=(
+            "join-request|0e8a16|加入 velotricai 组织申请（auto-invite workflow 触发条件）"
+            "skill-request|fbca04|新 skill 需求"
+            "bug|d73a4a|缺陷"
+            "documentation|0075ca|文档改进"
+          )
+
+          for entry in "${LABELS[@]}"; do
+            IFS='|' read -r NAME COLOR DESC <<< "$entry"
+
+            if gh api "/repos/$REPO/labels/$NAME" --silent 2>/dev/null; then
+              echo "✓ label '$NAME' 已存在"
+              # 可选：更新颜色和描述
+              gh api -X PATCH "/repos/$REPO/labels/$NAME" \
+                -f new_name="$NAME" \
+                -f color="$COLOR" \
+                -f description="$DESC" \
+                --silent && echo "  已同步颜色和描述"
+            else
+              echo "+ 创建 label '$NAME'"
+              gh api -X POST "/repos/$REPO/labels" \
+                -f name="$NAME" \
+                -f color="$COLOR" \
+                -f description="$DESC" \
+                --silent
+            fi
+          done
+
+          echo
+          echo "完成。当前所有 label："
+          gh api "/repos/$REPO/labels" -q '.[].name' | sort

@@ -47,6 +47,17 @@ jobs:
             --repo "${{ github.repository }}" \
             --reason "completed"
 
+      - name: 已是成员 → 飞书通知（也通知 perry，看到 dogfood / 重复申请）
+        if: steps.membership.outputs.already_member == 'true' && env.FEISHU_WEBHOOK != ''
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
+          USERNAME: ${{ steps.who.outputs.username }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          MESSAGE="ℹ️ velotricai 入组申请（已是成员）\n\nGitHub 用户：@$USERNAME（已经是成员，无需重复邀请）\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL\n\n（这条通知用来让 perry 监督所有入组事件，包括 dogfood 测试）"
+          PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
+          curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
+
       - name: 发送组织邀请
         if: steps.membership.outputs.already_member == 'false'
         id: invite
