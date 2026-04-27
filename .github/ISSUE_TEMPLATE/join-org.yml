@@ -1,0 +1,61 @@
+name: 加入 velotricai 组织申请
+description: 申请加入后能访问 velotric-skills 私有仓库
+title: "[加入申请]"
+labels: ["join-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 欢迎加入 Velotric AI Skill 平台 👋
+
+        填完这份表单提交后，**1 分钟内自动给你发邀请邮件**（GitHub 注册时用的邮箱）。
+        你点 Accept 后就能继续装 velotric skills。
+
+        如果是 AI 帮你打开这个页面，直接拉到底部点 **Submit**——大部分内容已经预填好。
+
+  - type: input
+    id: github_username
+    attributes:
+      label: 你的 GitHub 用户名
+      description: |
+        ⚠️ 注意：是 GitHub 上的 **username**，不是邮箱地址。
+        比如 `PerryChen`、`AdamWang` 这种。可以在 [github.com/settings/profile](https://github.com/settings/profile) 看到。
+      placeholder: 例如 AdamWang
+    validations:
+      required: true
+
+  - type: dropdown
+    id: department
+    attributes:
+      label: 部门
+      options:
+        - 产品
+        - 工程
+        - 增长
+        - 运营
+        - 销售
+        - 客服
+        - 行政
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: work_email
+    attributes:
+      label: 工作邮箱（可选，做联系用）
+      placeholder: name@velotric.com
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 你想用 velotric skills 做什么？（可选）
+      description: 一句话即可，帮我们给你推荐合适的 skill
+      placeholder: 我想用 PRD 检查 skill / 想分享我的 skill 给团队 / etc
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        提交后等几秒，机器人会评论你这个 issue 告诉你结果。
+        然后去你的 GitHub 注册邮箱查邀请邮件，点 **Accept invitation**。

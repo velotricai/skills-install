@@ -1,0 +1,157 @@
+name: Auto-invite to velotricai org
+
+# 触发：任何带 join-request 标签的新 issue
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  issues: write       # 评论 + close issue
+  contents: read
+
+jobs:
+  invite:
+    if: contains(github.event.issue.labels.*.name, 'join-request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 解析 issue body 拿 GitHub username
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          # issue 模板把字段渲染成 "### Label\n\nValue\n\n"
+          # 提取 "### 你的 GitHub 用户名" 后的非空行
+          USERNAME=$(printf '%s\n' "$ISSUE_BODY" | awk '
+            /### 你的 GitHub 用户名/ {found=1; next}
+            found && /^### / {exit}
+            found && NF {print; exit}
+          ' | xargs)
+
+          # fallback: issue 作者本人
+          if [ -z "$USERNAME" ]; then
+            USERNAME="${{ github.event.issue.user.login }}"
+            echo "Username 字段没填，fallback 到 issue 作者: $USERNAME"
+          fi
+
+          # 去掉可能的 @ 前缀
+          USERNAME="${USERNAME#@}"
+
+          echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
+          echo "Resolved username: $USERNAME"
+
+      - name: 验证 GitHub 用户存在
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.ORG_INVITE_TOKEN }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+        run: |
+          if USER_INFO=$(gh api "/users/$USERNAME" 2>/dev/null); then
+            USER_ID=$(echo "$USER_INFO" | jq -r .id)
+            USER_NAME=$(echo "$USER_INFO" | jq -r .name)
+            echo "user_id=$USER_ID" >> "$GITHUB_OUTPUT"
+            echo "user_name=$USER_NAME" >> "$GITHUB_OUTPUT"
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 用户不存在 → 评论 + 关 issue
+        if: steps.verify.outputs.valid == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "❌ 找不到 GitHub 用户 \`$USERNAME\`。请重新开一个 issue，**仔细检查 GitHub username 拼写**（注意是 username 不是邮箱，可在 https://github.com/settings/profile 查看）。"
+          gh issue close "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --reason "not planned"
+
+      - name: 检查是否已是 velotricai 成员
+        if: steps.verify.outputs.valid == 'true'
+        id: membership
+        env:
+          GH_TOKEN: ${{ secrets.ORG_INVITE_TOKEN }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+        run: |
+          if gh api "/orgs/velotricai/members/$USERNAME" --silent 2>/dev/null; then
+            echo "already_member=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_member=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 已是成员 → 友好提示
+        if: steps.verify.outputs.valid == 'true' && steps.membership.outputs.already_member == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "ℹ️ \`@$USERNAME\` 已经是 velotricai 组织成员了。直接回到 [安装指南](https://github.com/velotricai/skills-install) 继续装 skill 即可。"
+          gh issue close "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --reason "completed"
+
+      - name: 发送组织邀请
+        if: steps.verify.outputs.valid == 'true' && steps.membership.outputs.already_member == 'false'
+        id: invite
+        env:
+          GH_TOKEN: ${{ secrets.ORG_INVITE_TOKEN }}
+          USER_ID: ${{ steps.verify.outputs.user_id }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+        run: |
+          # 默认加到 contributors team
+          TEAM_ID=$(gh api /orgs/velotricai/teams/contributors -q .id)
+
+          if gh api -X POST /orgs/velotricai/invitations \
+              -F invitee_id="$USER_ID" \
+              -F role=direct_member \
+              -F "team_ids[]=$TEAM_ID" \
+              --silent 2>/tmp/invite-err; then
+            echo "invited=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "invited=false" >> "$GITHUB_OUTPUT"
+            echo "error=$(cat /tmp/invite-err)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 邀请成功 → 评论
+        if: steps.invite.outputs.invited == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+          USER_NAME: ${{ steps.verify.outputs.user_name }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "✅ 已邀请 @$USERNAME ($USER_NAME) 加入 velotricai 组织。
+
+          **下一步**：
+          1. 去你 GitHub 注册时用的邮箱，找一封标题含 \`velotricai\` 的邀请邮件
+          2. 点邮件里的 **Accept invitation**（或者直接打开 https://github.com/orgs/velotricai/invitation 接受）
+          3. 接受后回到 [安装指南](https://github.com/velotricai/skills-install)，跟你的 AI 说 \`继续装 velotric skills\`"
+          gh issue close "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --reason "completed"
+
+      - name: 邀请失败 → 提示联系 perry
+        if: steps.invite.outputs.invited == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          USERNAME: ${{ steps.parse.outputs.username }}
+          ERROR: ${{ steps.invite.outputs.error }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "⚠️ 邀请 @$USERNAME 失败：
+
+          \`\`\`
+          $ERROR
+          \`\`\`
+
+          已通知 @perry-czp 处理。"
