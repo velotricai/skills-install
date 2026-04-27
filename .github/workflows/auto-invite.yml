@@ -1,9 +1,9 @@
 name: Auto-invite to velotricai org
 
-# 触发：任何带 join-request 标签的新 issue
+# 触发：title 含 "[加入申请]" 的 issue（不依赖 label，避免 label 不存在导致 skip）
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened, reopened, labeled]
 
 permissions:
   issues: write       # 评论 + close issue
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   invite:
-    if: contains(github.event.issue.labels.*.name, 'join-request')
+    if: contains(github.event.issue.title, '[加入申请]') || contains(github.event.issue.labels.*.name, 'join-request')
     runs-on: ubuntu-latest
     steps:
       - name: 解析 issue body 拿 GitHub username
