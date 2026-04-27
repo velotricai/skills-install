@@ -1,4 +1,4 @@
-# Velotric Skills 安装指南（v0.8.2）
+# Velotric Skills 安装指南（v0.8.4）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
@@ -47,7 +47,7 @@ gh api /orgs/velotricai/members/$USERNAME --silent
 >
 > 提交后等 30 秒，机器人自动给你发邀请邮件。
 >
-> ⚠️ 第一次申请的同事要等 perry 把你加到 allowlist（通常 1 个工作日）。如果着急可以飞书直接 @ perry。"
+> 如果 2 分钟内没收到 issue 评论或邀请邮件，让用户把 GitHub username 发给 perry。"
 
 **情况 C：用户还没登录 GitHub / 没安装 gh**
 告诉用户：
@@ -121,7 +121,14 @@ gh auth setup-git    # 让 git 用 gh 的 token 做 push/pull
 
 ```bash
 # 默认装到 ~/velotric-skills（不问用户，避免增加心智成本）
-gh repo clone velotricai/velotric-skills ~/velotric-skills
+if [ -d ~/velotric-skills/.git ]; then
+  git -C ~/velotric-skills pull --ff-only origin main
+else
+  if [ -e ~/velotric-skills ]; then
+    mv ~/velotric-skills ~/velotric-skills.velotric-bak.$(date +%Y%m%d-%H%M%S)
+  fi
+  gh repo clone velotricai/velotric-skills ~/velotric-skills
+fi
 bash ~/velotric-skills/velotric-skill-meta/scripts/install.sh
 ```
 
@@ -137,7 +144,14 @@ bash ~/velotric-skills/velotric-skill-meta/scripts/install.sh --add ops-hiring-w
 
 ```powershell
 $DefaultHome = if ($env:VELOTRIC_SKILLS_HOME) { $env:VELOTRIC_SKILLS_HOME } else { Join-Path $env:USERPROFILE "velotric-skills" }
-gh repo clone velotricai/velotric-skills $DefaultHome
+if (Test-Path (Join-Path $DefaultHome ".git")) {
+  git -C $DefaultHome pull --ff-only origin main
+} else {
+  if (Test-Path $DefaultHome) {
+    Move-Item -Path $DefaultHome -Destination "$DefaultHome.velotric-bak.$(Get-Date -Format 'yyyyMMdd-HHmmss')" -Force
+  }
+  gh repo clone velotricai/velotric-skills $DefaultHome
+}
 powershell -ExecutionPolicy Bypass -File "$DefaultHome\velotric-skill-meta\scripts\install.ps1"
 ```
 
@@ -203,7 +217,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 | 现象 | 怎么办 |
 |---|---|
-| 我不在 allowlist 一直没批 | 飞书 @ perry，或者发邮件给他，提供你的 GitHub username |
+| 2 分钟内没收到 GitHub 邀请 | 飞书 @ perry，提供你的 GitHub username 和申请 issue 链接 |
 | `gh: command not found` | macOS 检查 Homebrew；Windows 用 `winget install --id GitHub.cli -e` |
 | `gh auth login` 浏览器没弹 | 复制命令输出的 8 位 device code，手动粘到弹出的 URL |
 | Codex/Claude 收不到 skill | 关掉 AI 窗口（Cmd+Q）重开，让它重新加载 skill |
@@ -215,7 +229,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8.2
-**更新**：2026-04-27
+**版本**：v0.8.4
+**更新**：2026-04-28
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@PerryChen / @velotricai/platform-maintainers

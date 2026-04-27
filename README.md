@@ -20,7 +20,7 @@ https://raw.githubusercontent.com/velotricai/skills-install/main/install-guide.m
 
 > 这个仓库是公开的，但 [velotric-skills](https://github.com/velotricai/velotric-skills)（实际 skill 内容）是私有的。
 > 你必须先被邀请加入 velotricai GitHub 组织才能完成安装的最后一步。
-> 如未加入，联系 perry 或者公司 IT。
+> 如未加入，安装指南会引导你提交 GitHub issue，机器人会自动发送组织邀请。
 
 ## 安装后能做什么
 

@@ -19,6 +19,8 @@ jobs:
   invite:
     if: contains(github.event.issue.title, '[加入申请]') || contains(github.event.issue.labels.*.name, 'join-request')
     runs-on: ubuntu-latest
+    env:
+      FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
     steps:
       - name: 拿 issue 作者身份（GitHub 已经验证过存在）
         id: who
@@ -55,7 +57,6 @@ jobs:
       - name: 已是成员 → 飞书通知（监督所有入组事件）
         if: steps.membership.outputs.already_member == 'true' && env.FEISHU_WEBHOOK != ''
         env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
           USERNAME: ${{ steps.who.outputs.username }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
@@ -92,7 +93,11 @@ jobs:
               echo "（已存在 pending invitation，视为成功）"
             else
               echo "invited=false" >> "$GITHUB_OUTPUT"
-              echo "error=$ERR_CONTENT" >> "$GITHUB_OUTPUT"
+              {
+                echo "error<<EOF"
+                echo "$ERR_CONTENT"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
             fi
           fi
 
@@ -118,7 +123,6 @@ jobs:
       - name: 邀请成功 → 飞书通知 perry
         if: steps.invite.outputs.invited == 'true' && env.FEISHU_WEBHOOK != ''
         env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
           USERNAME: ${{ steps.who.outputs.username }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
@@ -151,7 +155,7 @@ jobs:
           $ERROR
           \`\`\`
 
-          已通知 @perry-czp 处理。"
+          已通知 @PerryChen 处理。"
 
           if [ -n "${FEISHU_WEBHOOK:-}" ]; then
             MESSAGE="⚠️ velotricai 自动入组失败
