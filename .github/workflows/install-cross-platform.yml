@@ -1,0 +1,131 @@
+name: Cross-platform install verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - install-guide.md
+      - .github/workflows/install-cross-platform.yml
+
+permissions:
+  contents: read
+
+jobs:
+  macos-install:
+    name: macOS install.sh
+    runs-on: macos-latest
+    steps:
+      - name: Checkout public install repo
+        uses: actions/checkout@v4
+
+      - name: Confirm public entrypoint shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f install-guide.md
+          if [ -f install.sh ]; then
+            echo "Public repo has install.sh; this workflow still validates the guide-driven private installer path."
+          else
+            echo "Public repo has no install.sh; install-guide.md points users to clone velotricai/velotric-skills."
+          fi
+          grep -q "gh repo clone velotricai/velotric-skills" install-guide.md
+          grep -q "velotric-skill-meta/scripts/install.sh" install-guide.md
+
+      - name: Clone private velotric-skills repo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.VELOTRIC_SKILLS_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "Missing VELOTRIC_SKILLS_PAT secret. Add a PAT with read access to velotricai/velotric-skills."
+            exit 1
+          fi
+          VSK_HOME="$RUNNER_TEMP/velotric-skills"
+          gh repo clone velotricai/velotric-skills "$VSK_HOME"
+          echo "VSK_HOME=$VSK_HOME" >> "$GITHUB_ENV"
+
+      - name: Run install.sh with isolated HOME
+        shell: bash
+        env:
+          HOME: ${{ runner.temp }}/velotric-home
+          SHELL: /bin/zsh
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+          bash "$VSK_HOME/velotric-skill-meta/scripts/install.sh"
+
+          test -L "$HOME/.agents/skills/velotric-skill-meta"
+          test -L "$HOME/.codex/skills/velotric-skill-meta"
+          test -L "$HOME/.claude/skills/velotric-skill-meta"
+          grep -qx "velotric-skill-meta" "$HOME/.velotric-skills/installed.txt"
+
+          installed_count="$(grep -v '^#' "$HOME/.velotric-skills/installed.txt" | grep -vc '^[[:space:]]*$')"
+          test "$installed_count" -eq 1
+          test ! -e "$HOME/.agents/skills/ops-hiring-workflow"
+
+  windows-install:
+    name: Windows install.ps1
+    runs-on: windows-latest
+    steps:
+      - name: Checkout public install repo
+        uses: actions/checkout@v4
+
+      - name: Confirm public entrypoint shape
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not (Test-Path "install-guide.md")) {
+            throw "install-guide.md is missing"
+          }
+          if (Test-Path "install.sh") {
+            Write-Host "Public repo has install.sh; this workflow still validates the guide-driven private installer path."
+          } else {
+            Write-Host "Public repo has no install.sh; install-guide.md points users to clone velotricai/velotric-skills."
+          }
+          Select-String -Path "install-guide.md" -Pattern "gh repo clone velotricai/velotric-skills" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "install.ps1" -SimpleMatch | Out-Null
+
+      - name: Clone private velotric-skills repo
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.VELOTRIC_SKILLS_PAT }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not $env:GH_TOKEN) {
+            throw "Missing VELOTRIC_SKILLS_PAT secret. Add a PAT with read access to velotricai/velotric-skills."
+          }
+          $vskHome = Join-Path $env:RUNNER_TEMP "velotric-skills"
+          gh repo clone velotricai/velotric-skills $vskHome
+          "VSK_HOME=$vskHome" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Run install.ps1 with isolated USERPROFILE
+        shell: pwsh
+        env:
+          USERPROFILE: ${{ runner.temp }}\velotric-home
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path $env:USERPROFILE | Out-Null
+          pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:VSK_HOME\velotric-skill-meta\scripts\install.ps1"
+
+          if (-not (Test-Path "$env:USERPROFILE\.agents\skills\velotric-skill-meta\SKILL.md")) {
+            throw "velotric-skill-meta was not installed into .agents"
+          }
+          if (-not (Test-Path "$env:USERPROFILE\.codex\skills\velotric-skill-meta\SKILL.md")) {
+            throw "velotric-skill-meta was not installed into .codex"
+          }
+          if (-not (Test-Path "$env:USERPROFILE\.claude\skills\velotric-skill-meta\SKILL.md")) {
+            throw "velotric-skill-meta was not installed into .claude"
+          }
+
+          $installed = Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt" |
+            Where-Object { $_ -and -not $_.Trim().StartsWith("#") } |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ }
+          if (($installed.Count -ne 1) -or ($installed[0] -ne "velotric-skill-meta")) {
+            throw "Expected only velotric-skill-meta to be installed; got: $($installed -join ', ')"
+          }
+          if (Test-Path "$env:USERPROFILE\.agents\skills\ops-hiring-workflow") {
+            throw "Default install should not install ops-hiring-workflow"
+          }
