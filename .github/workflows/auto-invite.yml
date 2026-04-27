@@ -1,12 +1,18 @@
 name: Auto-invite to velotricai org
 
-# 触发：title 含 "[加入申请]" 的 issue（不依赖 label，避免 label 不存在导致 skip）
+# v0.8 设计：撤销 allowlist（增加 perry 维护成本，违反"减少维护成本"原则）
+#   退回 v0.7 全自动 + 飞书监督。安全靠：
+#   1. 飞书每次入组通知 perry（perry 看到不认识的人 1 click revoke）
+#   2. velotricai 是私有 org，新成员只 read 权限（CODEOWNERS 拦 push）
+#   3. admin 随时 revoke 兜底
+# 触发：labeled / reopened（去掉 opened，避免 issue label 还没加上时跑空）
+
 on:
   issues:
-    types: [opened, reopened, labeled]
+    types: [labeled, reopened]
 
 permissions:
-  issues: write       # 评论 + close issue
+  issues: write
   contents: read
 
 jobs:
@@ -19,7 +25,6 @@ jobs:
         run: |
           echo "username=${{ github.event.issue.user.login }}" >> "$GITHUB_OUTPUT"
           echo "user_id=${{ github.event.issue.user.id }}" >> "$GITHUB_OUTPUT"
-          echo "Resolved: ${{ github.event.issue.user.login }} (id=${{ github.event.issue.user.id }})"
 
       - name: 检查是否已是 velotricai 成员
         id: membership
@@ -47,14 +52,19 @@ jobs:
             --repo "${{ github.repository }}" \
             --reason "completed"
 
-      - name: 已是成员 → 飞书通知（也通知 perry，看到 dogfood / 重复申请）
+      - name: 已是成员 → 飞书通知（监督所有入组事件）
         if: steps.membership.outputs.already_member == 'true' && env.FEISHU_WEBHOOK != ''
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
           USERNAME: ${{ steps.who.outputs.username }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
-          MESSAGE="ℹ️ velotricai 入组申请（已是成员）\n\nGitHub 用户：@$USERNAME（已经是成员，无需重复邀请）\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL\n\n（这条通知用来让 perry 监督所有入组事件，包括 dogfood 测试）"
+          MESSAGE="ℹ️ velotricai 入组申请（已是成员）
+
+          GitHub 用户：@$USERNAME（已经是成员，无需重复邀请）
+          时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+
+          查看 issue：$ISSUE_URL"
           PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
           curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
 
@@ -66,7 +76,6 @@ jobs:
           USER_ID: ${{ steps.who.outputs.user_id }}
           USERNAME: ${{ steps.who.outputs.username }}
         run: |
-          # 默认加到 contributors team
           TEAM_ID=$(gh api /orgs/velotricai/teams/contributors -q .id)
 
           if gh api -X POST /orgs/velotricai/invitations \
@@ -76,8 +85,15 @@ jobs:
               --silent 2>/tmp/invite-err; then
             echo "invited=true" >> "$GITHUB_OUTPUT"
           else
-            echo "invited=false" >> "$GITHUB_OUTPUT"
-            echo "error=$(cat /tmp/invite-err)" >> "$GITHUB_OUTPUT"
+            ERR_CONTENT=$(cat /tmp/invite-err)
+            # 422 = 已存在 invitation；race condition 兼容
+            if echo "$ERR_CONTENT" | grep -q "422"; then
+              echo "invited=true" >> "$GITHUB_OUTPUT"
+              echo "（已存在 pending invitation，视为成功）"
+            else
+              echo "invited=false" >> "$GITHUB_OUTPUT"
+              echo "error=$ERR_CONTENT" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: 邀请成功 → 评论 issue
@@ -106,29 +122,26 @@ jobs:
           USERNAME: ${{ steps.who.outputs.username }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
-          MESSAGE="🎉 velotricai 自动入组通知\n\nGitHub 用户：@$USERNAME\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL\n\n如果不认识这个人，去 https://github.com/orgs/velotricai/people 找到 ta 后点 ⋯ → Remove from organization"
+          MESSAGE="🎉 velotricai 自动入组通知
+
+          GitHub 用户：@$USERNAME
+          时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+
+          查看 issue：$ISSUE_URL
+
+          ⚠️ 如果不认识此人 1-click 移除：https://github.com/orgs/velotricai/people"
           PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
           curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
 
-      - name: 邀请失败 → 飞书告警
-        if: steps.invite.outputs.invited == 'false' && env.FEISHU_WEBHOOK != ''
-        env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
-          USERNAME: ${{ steps.who.outputs.username }}
-          ERROR: ${{ steps.invite.outputs.error }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-        run: |
-          MESSAGE="⚠️ velotricai 自动入组失败\n\n申请用户：@$USERNAME\n错误：$ERROR\n时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')\n\n查看 issue：$ISSUE_URL"
-          PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
-          curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
-
-      - name: 邀请失败 → 评论 issue
+      - name: 邀请失败 → 飞书告警 + 评论 issue
         if: steps.invite.outputs.invited == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           USERNAME: ${{ steps.who.outputs.username }}
           ERROR: ${{ steps.invite.outputs.error }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
           gh issue comment "$ISSUE_NUMBER" \
             --repo "${{ github.repository }}" \
@@ -139,3 +152,13 @@ jobs:
           \`\`\`
 
           已通知 @perry-czp 处理。"
+
+          if [ -n "${FEISHU_WEBHOOK:-}" ]; then
+            MESSAGE="⚠️ velotricai 自动入组失败
+          申请用户：@$USERNAME
+          错误：$ERROR
+          时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+          查看 issue：$ISSUE_URL"
+            PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
+            curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
+          fi

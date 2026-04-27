@@ -1,0 +1,47 @@
+name: 我想要一个 skill（不必我自己做）
+description: 提需求，让平台维护者或对应领域的同事看看能不能做
+title: "[需求]"
+labels: ["skill-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 你不必自己写 skill 也能受益 👍
+
+        看到别人在用 skill 帮自己工作，但你不知道怎么自己做？或者懒得做？没关系——**告诉我们你想要什么**，平台维护者或对应领域的专家可能愿意帮你做。
+
+        填得越具体越容易被人接住做出来。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 你想用 skill 做什么？
+      description: 越具体越好——把你脑子里一段真实工作内容描述出来。
+      placeholder: |
+        例 1：每周一早上我要看 30 个产品经理写的周报，想 AI 帮我抓重点。
+        例 2：我要写客服回复给客户，希望保持公司特定的语气。
+        例 3：我有一堆飞书会议纪要，想 AI 帮我提炼"需要决策"的事。
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: （可选）粘一段真实例子让做的人参考
+      description: 一段你最近真的处理过的内容——一段周报片段、一封邮件草稿、一份会议纪要节选都行。**注意：会公开在 issue 里，请脱敏**。
+      placeholder: |
+        例如粘一段周报，让做 skill 的人知道输入大概长什么样。
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 提交后会发生什么
+
+        - 平台维护者会评估这个需求的优先级
+        - 如果你领域内有同事正想做类似的，会被 ping 来认领
+        - 如果有人愿意做，会跟你 1:1 沟通确认细节
+        - 如果暂时没人能做，会留在 backlog 里等
+        - 你不需要懂 git / 写 Markdown / 学任何工程
+
+        提交后等就好——做出来后会通过飞书通知你。
