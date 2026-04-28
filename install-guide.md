@@ -1,4 +1,4 @@
-# Velotric Skills 安装指南（v0.8.6）
+# Velotric Skills 安装指南（v0.8.7）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
@@ -149,6 +149,26 @@ winget install --id Git.Git -e
 winget install --id GitHub.cli -e
 ```
 
+如果 `winget install --id GitHub.cli -e` 因为 `msstore` 源证书、网络或商店源问题失败，不要让用户自己排查，直接改用 winget 官方源：
+
+```powershell
+winget install --id GitHub.cli -e --source winget
+```
+
+如果安装完成后当前 PowerShell 仍提示 `gh` 找不到，通常只是 PATH 没刷新。AI 先自动查找常见路径，不要要求用户重启电脑：
+
+```powershell
+$GhPath = (Get-Command gh.exe -ErrorAction SilentlyContinue).Source
+if (-not $GhPath) {
+  $GhPath = Get-ChildItem 'C:\Program Files','C:\Users\*\AppData\Local\Programs' -Recurse -Filter gh.exe -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty FullName
+}
+if (-not $GhPath) { throw "GitHub CLI 已安装但当前会话找不到 gh.exe，请打开新 PowerShell 后重试。" }
+& $GhPath --version
+```
+
+后续本页里的 `gh ...` 命令，在 Windows 上如果当前会话找不到 `gh`，就用 `& $GhPath ...` 代替。
+
 ⚠️ 用户配合点：
 - Windows 可能弹出安装确认 / UAC 授权
 - 如果没有 winget，让用户先从官网安装 Git for Windows 和 GitHub CLI，再继续
@@ -189,6 +209,12 @@ gh api /user -q .login
 如果浏览器授权没有回传，不要让用户生成 token。只给一个动作：
 
 > "这次授权没有回传。我会重新发起登录；如果终端显示 8 位 device code，你只需要复制这个 code 到 GitHub 页面，不要生成 token。"
+
+如果第二次仍然因为 `github.com/login/device/code` 网络超时，不要切到 PAT。按这个顺序处理：
+
+1. 让用户换网络、开手机热点或公司可访问 GitHub 的网络后重试。
+2. 仍失败时，让用户把 GitHub username 发给平台维护者，由维护者协助完成登录或现场处理。
+3. 普通用户安装流程禁止引导创建 classic PAT；PAT 只允许平台维护者在受控环境里使用，且不得进入聊天记录。
 
 ---
 
@@ -308,7 +334,10 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 |---|---|
 | 2 分钟内没收到 GitHub 邀请 | 飞书 @ perry，提供你的 GitHub username 和申请 issue 链接 |
 | `gh: command not found` | macOS 检查 Homebrew；Windows 用 `winget install --id GitHub.cli -e` |
+| Windows 安装 gh 时 msstore 源报错 | 改用 `winget install --id GitHub.cli -e --source winget` |
+| Windows 安装 gh 后当前窗口仍找不到 | 自动查找 `C:\Program Files\GitHub CLI\gh.exe`，或打开新 PowerShell |
 | `gh auth login` 浏览器没弹 | 复制命令输出的 8 位 device code，手动粘到弹出的 URL |
+| `github.com/login/device/code` 网络超时 | 换网络/热点后重试；仍失败时找平台维护者，不走普通用户 PAT 路径 |
 | 用户把 GitHub token 发进聊天 | 立即去 GitHub 撤销该 token；重新用 `gh auth login --git-protocol https --web` 登录，不要在聊天里传 token |
 | Codex/Claude 收不到 skill | 关掉 AI 窗口（Cmd+Q）重开，让它重新加载 skill |
 | Windows 上 `vsk-list` 不存在 | 开新 PowerShell，或运行 `. $PROFILE` |
@@ -319,7 +348,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8.6
+**版本**：v0.8.7
 **更新**：2026-04-28
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@PerryChen / @velotricai/platform-maintainers
