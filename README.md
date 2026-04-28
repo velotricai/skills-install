@@ -22,6 +22,8 @@ https://raw.githubusercontent.com/velotricai/skills-install/main/install-guide.m
 > 你必须先被邀请加入 velotricai GitHub 组织才能完成安装的最后一步。
 > 如未加入，安装指南会引导你提交 GitHub issue，机器人会自动发送组织邀请。
 
+安装过程中不要把 GitHub token / PAT 发给 AI。登录只通过 GitHub CLI 打开的浏览器授权页完成。
+
 ## 安装后能做什么
 
 装好后，跟你的 AI 说自然语言即可：
