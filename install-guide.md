@@ -1,4 +1,4 @@
-# Velotric Skills 安装指南（v0.8.7）
+# Velotric Skills 安装指南（v0.8.8）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
@@ -56,24 +56,27 @@ uname -s 2>/dev/null || ver
 
 ---
 
-## 第 0 步：确认入组（最快路径）
+## 第 0 步：确认仓库访问权（最快路径）
 
 先尝试自己检查，不要先让用户读说明。跟用户说：
 
-> "你需要是 velotricai GitHub 组织的成员才能装公司 skill。我先帮你检查并申请——只要 30 秒。"
+> "你需要能访问 velotricai 的私有 skill 仓库才能装公司 skill。我先帮你检查并申请——只要 30 秒。"
 
 ```bash
 # 拿当前 gh 登录用户的 username
 USERNAME=$(gh api /user -q .login 2>/dev/null || true)
 ```
 
-**情况 A：USERNAME 拿到了 + 已是成员**
-```bash
-gh api /orgs/velotricai/members/$USERNAME --silent
-```
-返回 204 → 跳到第 1 步。
+**情况 A：USERNAME 拿到了 + 已有私有仓库访问权**
 
-**情况 B：USERNAME 拿到但不是成员 → 引导用户提交申请**
+优先检查私有仓库是否可读，不要为了"组织成员检查"额外刷新 GitHub scope。真实安装需要的是 `velotricai/velotric-skills` 访问权；如果这里可读，就直接跳到第 1 步。
+
+```bash
+gh repo view velotricai/velotric-skills --json name -q .name >/dev/null
+```
+返回 `velotric-skills` → 跳到第 1 步。
+
+**情况 B：USERNAME 拿到但私有仓库不可读 → 引导用户提交申请**
 
 直接给用户一个**预填好的 issue URL**：
 
@@ -90,10 +93,10 @@ gh api /orgs/velotricai/members/$USERNAME --silent
 用户说"好了"后，AI 等 30 秒，再检查：
 
 ```bash
-gh api /orgs/velotricai/members/$USERNAME --silent
+gh repo view velotricai/velotric-skills --json name -q .name >/dev/null
 ```
 
-如果还不是成员，继续给用户一个动作：
+如果仍不能访问私有仓库，继续给用户一个动作：
 
 > "我现在需要你做一件事：打开 GitHub 注册邮箱，找到 velotricai 的邀请邮件，点 **Accept invitation**。
 >
@@ -101,13 +104,13 @@ gh api /orgs/velotricai/members/$USERNAME --silent
 >
 > 完成标志：GitHub 页面显示你已加入组织。做完告诉我"好了"。"
 
-用户说"好了"后再检查组织成员资格。2 分钟内仍失败，才让用户把 GitHub username 和申请 issue 链接发给平台维护者。
+用户说"好了"后再检查私有仓库访问权。2 分钟内仍失败，才让用户把 GitHub username 和申请 issue 链接发给平台维护者。
 
 **情况 C：用户还没登录 GitHub / 没安装 gh**
 告诉用户：
 > "你的 GitHub 账号还没准备好。我先帮你装 GitHub CLI 并登录（约 5 分钟）。"
 
-跳到第 1 步，做完再回到 0 步检查 membership。
+跳到第 1 步，做完再回到 0 步检查访问权。
 
 ---
 
@@ -121,13 +124,41 @@ gh api /orgs/velotricai/members/$USERNAME --silent
 
 ```bash
 which git || xcode-select --install   # macOS 自带或弹窗装 Xcode CLT
-which brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-which gh   || brew install gh
+BREW="$(command -v brew || true)"
+if [ -z "$BREW" ]; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  BREW="$(command -v brew || true)"
+  [ -z "$BREW" ] && [ -x /opt/homebrew/bin/brew ] && BREW=/opt/homebrew/bin/brew
+  [ -z "$BREW" ] && [ -x /usr/local/bin/brew ] && BREW=/usr/local/bin/brew
+fi
+which gh || "$BREW" install gh
 ```
 
 ⚠️ 用户配合点：
 - Xcode CLT 系统弹窗（如果出现）：点"安装"，等 5-10 分钟
 - Homebrew sudo 密码：输 macOS 登录密码（**不是 GitHub 密码**）
+
+如果 Homebrew 安装卡在 sudo 密码，但当前 AI 终端没有可见输入点，不要反复让用户在看不见的地方输入密码。改用 macOS Terminal 打开可见窗口：
+
+```bash
+osascript -e 'tell application "Terminal" to do script "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""'
+```
+
+跟用户说：
+
+> "我现在需要你做一件事：在新弹出的 Terminal 窗口里完成 Homebrew 安装。
+>
+> 为什么：Homebrew 要写入系统目录，macOS 必须由你本人输入登录密码。
+>
+> 完成标志：Terminal 显示安装完成，或回到命令提示符。不要提前关闭窗口；做完告诉我'好了'。"
+
+用户说"好了"后，AI 必须验证 `/opt/homebrew/bin/brew` 和 `/usr/local/bin/brew`，不要只看当前 shell 的 PATH：
+
+```bash
+command -v brew || test -x /opt/homebrew/bin/brew || test -x /usr/local/bin/brew
+```
+
+如果只创建了 `/opt/homebrew` 目录但没有 `bin/brew`，说明安装没完成。重新打开 Terminal 再跑一次，并明确让用户等到回到提示符再说"好了"。
 
 ### Windows PowerShell 分支
 
@@ -204,17 +235,34 @@ gh auth setup-git    # 让 git 用 gh 的 token 做 push/pull
 ```bash
 gh auth status
 gh api /user -q .login
+gh repo view velotricai/velotric-skills --json name -q .name >/dev/null || true
 ```
 
 如果浏览器授权没有回传，不要让用户生成 token。只给一个动作：
 
 > "这次授权没有回传。我会重新发起登录；如果终端显示 8 位 device code，你只需要复制这个 code 到 GitHub 页面，不要生成 token。"
 
+如果 `gh auth login --web` 输出 device code 但浏览器没有自动打开，AI 可以主动打开设备授权页：
+
+```bash
+open https://github.com/login/device
+```
+
+Windows PowerShell：
+
+```powershell
+Start-Process "https://github.com/login/device"
+```
+
+然后只让用户输入当前这一次 code。不要复用旧 code；如果 GitHub 提示找不到 code，立即重新发起 `gh auth login --git-protocol https --web` 生成新 code。
+
 如果第二次仍然因为 `github.com/login/device/code` 网络超时，不要切到 PAT。按这个顺序处理：
 
 1. 让用户换网络、开手机热点或公司可访问 GitHub 的网络后重试。
 2. 仍失败时，让用户把 GitHub username 发给平台维护者，由维护者协助完成登录或现场处理。
 3. 普通用户安装流程禁止引导创建 classic PAT；PAT 只允许平台维护者在受控环境里使用，且不得进入聊天记录。
+
+登录后不要为了 `gh api /orgs/velotricai/members/$USERNAME` 额外触发第二次 GitHub scope 授权。若私有仓库不可读，走第 0 步申请/邀请流程。
 
 ---
 
@@ -306,10 +354,12 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 > 2. 跟它说一句话试试看：
 >
 >    \`\`\`
->    公司有什么 skill？我是做 [你的岗位/场景] 的，推荐我装哪个。
+>    公司有什么 skill？我是做财务分析的，推荐我装哪个。
 >    \`\`\`
 >
 > 这是你今天接下来 30 秒能验证装上是否成功的最快方式。"
+
+不要把 `[你的岗位/场景]` 这种占位符原样交给用户复制。若不知道用户岗位，安装完成后问一句"你主要做什么岗位/场景？"，再给他一条带真实岗位的提示词。
 
 如果用户是 Adam / CEO / 高层 owner，首装后的第一句不要让他看仓库，也不要让他先学 GitHub。让他直接验证两件事：公司 skill 目录能不能出现，以及他自己的 skill 如何进入公司机制。
 
@@ -334,9 +384,11 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 |---|---|
 | 2 分钟内没收到 GitHub 邀请 | 飞书 @ perry，提供你的 GitHub username 和申请 issue 链接 |
 | `gh: command not found` | macOS 检查 Homebrew；Windows 用 `winget install --id GitHub.cli -e` |
+| Homebrew 只创建了 `/opt/homebrew` 但没有 `bin/brew` | 安装窗口提前中断；重新用 Terminal.app 跑安装，等回到提示符后再验证 |
 | Windows 安装 gh 时 msstore 源报错 | 改用 `winget install --id GitHub.cli -e --source winget` |
 | Windows 安装 gh 后当前窗口仍找不到 | 自动查找 `C:\Program Files\GitHub CLI\gh.exe`，或打开新 PowerShell |
-| `gh auth login` 浏览器没弹 | 复制命令输出的 8 位 device code，手动粘到弹出的 URL |
+| `gh auth login` 浏览器没弹 | 打开 `https://github.com/login/device`，复制命令输出的当前 8 位 device code；旧 code 失效就重新生成 |
+| GitHub 登录后又要求补 scope | 不为组织成员检查补 scope；改用 `gh repo view velotricai/velotric-skills` 判断私有仓库访问权 |
 | `github.com/login/device/code` 网络超时 | 换网络/热点后重试；仍失败时找平台维护者，不走普通用户 PAT 路径 |
 | 用户把 GitHub token 发进聊天 | 立即去 GitHub 撤销该 token；重新用 `gh auth login --git-protocol https --web` 登录，不要在聊天里传 token |
 | Codex/Claude 收不到 skill | 关掉 AI 窗口（Cmd+Q）重开，让它重新加载 skill |
@@ -348,7 +400,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8.7
+**版本**：v0.8.8
 **更新**：2026-04-28
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@PerryChen / @velotricai/platform-maintainers
