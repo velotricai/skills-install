@@ -68,6 +68,63 @@ jobs:
           test "$installed_count" -eq 1
           test ! -e "$HOME/.agents/skills/ops-hiring-workflow"
 
+      - name: Verify install.sh add/remove/reapply
+        shell: bash
+        env:
+          HOME: ${{ runner.temp }}/velotric-home
+          SHELL: /bin/zsh
+        run: |
+          set -euo pipefail
+
+          active_installed() {
+            grep -v '^#' "$HOME/.velotric-skills/installed.txt" | grep -v '^[[:space:]]*$' | sort
+          }
+
+          assert_installed_exact() {
+            expected="$1"
+            actual="$(active_installed | tr '\n' ',' | sed 's/,$//')"
+            if [ "$actual" != "$expected" ]; then
+              echo "Expected installed list '$expected', got '$actual'"
+              cat "$HOME/.velotric-skills/installed.txt"
+              exit 1
+            fi
+          }
+
+          assert_skill_present() {
+            skill="$1"
+            test -e "$HOME/.agents/skills/$skill/SKILL.md"
+            test -e "$HOME/.codex/skills/$skill/SKILL.md"
+            test -e "$HOME/.claude/skills/$skill/SKILL.md"
+          }
+
+          assert_skill_absent() {
+            skill="$1"
+            test ! -e "$HOME/.agents/skills/$skill"
+            test ! -e "$HOME/.codex/skills/$skill"
+            test ! -e "$HOME/.claude/skills/$skill"
+          }
+
+          bash "$VSK_HOME/velotric-skill-meta/scripts/install.sh" --add ops-hiring-workflow
+          assert_skill_present "velotric-skill-meta"
+          assert_skill_present "ops-hiring-workflow"
+          assert_installed_exact "ops-hiring-workflow,velotric-skill-meta"
+
+          rm -f "$HOME/.agents/skills/ops-hiring-workflow"
+          bash "$VSK_HOME/velotric-skill-meta/scripts/install.sh" --reapply
+          assert_skill_present "ops-hiring-workflow"
+          assert_installed_exact "ops-hiring-workflow,velotric-skill-meta"
+
+          bash "$VSK_HOME/velotric-skill-meta/scripts/install.sh" --remove ops-hiring-workflow
+          assert_skill_absent "ops-hiring-workflow"
+          assert_skill_present "velotric-skill-meta"
+          assert_installed_exact "velotric-skill-meta"
+
+          rm -f "$HOME/.agents/skills/velotric-skill-meta"
+          bash "$VSK_HOME/velotric-skill-meta/scripts/install.sh" --reapply
+          assert_skill_present "velotric-skill-meta"
+          assert_skill_absent "ops-hiring-workflow"
+          assert_installed_exact "velotric-skill-meta"
+
   windows-install:
     name: Windows install.ps1
     runs-on: windows-latest
@@ -133,6 +190,70 @@ jobs:
           if (Test-Path "$env:USERPROFILE\.agents\skills\ops-hiring-workflow") {
             throw "Default install should not install ops-hiring-workflow"
           }
+
+      - name: Verify install.ps1 add/remove/reapply
+        shell: pwsh
+        env:
+          HOME: ${{ runner.temp }}\velotric-home
+          USERPROFILE: ${{ runner.temp }}\velotric-home
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          function Get-ActiveInstalled {
+            @(Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt" |
+              Where-Object { $_ -and -not $_.Trim().StartsWith("#") } |
+              ForEach-Object { $_.Trim() } |
+              Where-Object { $_ } |
+              Sort-Object)
+          }
+
+          function Assert-InstalledExact([string[]]$Expected) {
+            $actual = @(Get-ActiveInstalled)
+            $expectedSorted = @($Expected | Sort-Object)
+            if (($actual.Count -ne $expectedSorted.Count) -or
+                (Compare-Object -ReferenceObject $expectedSorted -DifferenceObject $actual)) {
+              throw "Expected installed list '$($expectedSorted -join ',')', got '$($actual -join ',')'"
+            }
+          }
+
+          function Assert-SkillPresent([string]$Skill) {
+            foreach ($root in @(".agents", ".codex", ".claude")) {
+              $path = Join-Path $env:USERPROFILE "$root\skills\$Skill\SKILL.md"
+              if (-not (Test-Path $path)) {
+                throw "$Skill is missing at $path"
+              }
+            }
+          }
+
+          function Assert-SkillAbsent([string]$Skill) {
+            foreach ($root in @(".agents", ".codex", ".claude")) {
+              $path = Join-Path $env:USERPROFILE "$root\skills\$Skill"
+              if (Test-Path $path) {
+                throw "$Skill should be absent at $path"
+              }
+            }
+          }
+
+          pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:VSK_HOME\velotric-skill-meta\scripts\install.ps1" -Add ops-hiring-workflow
+          Assert-SkillPresent "velotric-skill-meta"
+          Assert-SkillPresent "ops-hiring-workflow"
+          Assert-InstalledExact @("velotric-skill-meta", "ops-hiring-workflow")
+
+          Remove-Item -Path "$env:USERPROFILE\.agents\skills\ops-hiring-workflow" -Recurse -Force
+          pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:VSK_HOME\velotric-skill-meta\scripts\install.ps1" -Reapply
+          Assert-SkillPresent "ops-hiring-workflow"
+          Assert-InstalledExact @("velotric-skill-meta", "ops-hiring-workflow")
+
+          pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:VSK_HOME\velotric-skill-meta\scripts\install.ps1" -Remove ops-hiring-workflow
+          Assert-SkillAbsent "ops-hiring-workflow"
+          Assert-SkillPresent "velotric-skill-meta"
+          Assert-InstalledExact @("velotric-skill-meta")
+
+          Remove-Item -Path "$env:USERPROFILE\.agents\skills\velotric-skill-meta" -Recurse -Force
+          pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:VSK_HOME\velotric-skill-meta\scripts\install.ps1" -Reapply
+          Assert-SkillPresent "velotric-skill-meta"
+          Assert-SkillAbsent "ops-hiring-workflow"
+          Assert-InstalledExact @("velotric-skill-meta")
 
   notify-failure:
     name: Notify Feishu on failure
