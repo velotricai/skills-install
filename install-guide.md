@@ -1,4 +1,4 @@
-# Velotric Skills 安装指南（v0.8.4）
+# Velotric Skills 安装指南（v0.8.5）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
@@ -113,6 +113,10 @@ gh auth setup-git    # 让 git 用 gh 的 token 做 push/pull
 
 ⚠️ 用户配合点：浏览器打开 GitHub 授权页 → **点 Authorize**。
 
+⚠️ 安全红线：不要把 GitHub token / PAT 粘贴到 AI 聊天、飞书、文档或截图里。`gh auth login` 的授权应该在浏览器或终端里的 GitHub CLI 提示中完成。如果网络或浏览器回传超时，先重试 `gh auth login --git-protocol https --web`，并按命令输出的 device code 到 GitHub 页面完成授权；不要把 token 发给 AI。
+
+如果用户已经把 token 发进聊天或文档，立刻停止继续使用该 token，并让用户去 GitHub 撤销后重新授权。
+
 ---
 
 ## 第 3 步：Clone 仓库 + 安装
@@ -208,6 +212,18 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 >
 > 这是你今天接下来 30 秒能验证装上是否成功的最快方式。"
 
+如果用户是 Adam / CEO / 高层 owner，首装后的第一句不要让他看仓库，也不要让他先学 GitHub。让他直接验证两件事：公司 skill 目录能不能出现，以及他自己的 skill 如何进入公司机制。
+
+跟他说：
+
+> "如果你是 Adam，重开 AI 后直接说这句：
+>
+> \`\`\`
+> 公司有什么 skill？我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库。
+> \`\`\`
+>
+> 预期结果：AI 应该先说明现在默认只装了 `velotric-skill-meta`，然后告诉你可以把本地文件夹、截图、会议纪要或一段说明交给它；AI 会帮你整理成 `SKILL.md`、补版本和 owner、跑审计并开 PR。你不需要先懂 Git、YAML 或 PR。"
+
 如果用户是招聘 / HR 场景，让他试这个：
 > "用 ops-hiring-workflow 帮我初始化一个岗位：[岗位名 + 简单背景]"
 
@@ -220,6 +236,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 | 2 分钟内没收到 GitHub 邀请 | 飞书 @ perry，提供你的 GitHub username 和申请 issue 链接 |
 | `gh: command not found` | macOS 检查 Homebrew；Windows 用 `winget install --id GitHub.cli -e` |
 | `gh auth login` 浏览器没弹 | 复制命令输出的 8 位 device code，手动粘到弹出的 URL |
+| 用户把 GitHub token 发进聊天 | 立即去 GitHub 撤销该 token；重新用 `gh auth login --git-protocol https --web` 登录，不要在聊天里传 token |
 | Codex/Claude 收不到 skill | 关掉 AI 窗口（Cmd+Q）重开，让它重新加载 skill |
 | Windows 上 `vsk-list` 不存在 | 开新 PowerShell，或运行 `. $PROFILE` |
 | Windows 上链接失败 | `install.ps1` 会自动从 Junction fallback 到复制；仍失败时检查用户目录权限 |
@@ -229,7 +246,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8.4
+**版本**：v0.8.5
 **更新**：2026-04-28
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@PerryChen / @velotricai/platform-maintainers

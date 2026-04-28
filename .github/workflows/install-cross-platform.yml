@@ -1,6 +1,12 @@
 name: Cross-platform install verification
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - install-guide.md
+      - .github/workflows/install-cross-platform.yml
+      - README.md
   workflow_dispatch:
   schedule:
     # Daily 05:17 Asia/Shanghai. Catches install drift before the workday starts.
@@ -34,6 +40,9 @@ jobs:
           fi
           grep -q "gh repo clone velotricai/velotric-skills" install-guide.md
           grep -q "velotric-skill-meta/scripts/install.sh" install-guide.md
+          grep -q "我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库" install-guide.md
+          grep -q "你不需要先懂 Git、YAML 或 PR" install-guide.md
+          grep -q "不要把 GitHub token / PAT 粘贴到 AI 聊天" install-guide.md
 
       - name: Clone private velotric-skills repo
         shell: bash
@@ -146,6 +155,9 @@ jobs:
           }
           Select-String -Path "install-guide.md" -Pattern "gh repo clone velotricai/velotric-skills" -SimpleMatch | Out-Null
           Select-String -Path "install-guide.md" -Pattern "install.ps1" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "你不需要先懂 Git、YAML 或 PR" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "不要把 GitHub token / PAT 粘贴到 AI 聊天" -SimpleMatch | Out-Null
 
       - name: Clone private velotric-skills repo
         shell: pwsh
