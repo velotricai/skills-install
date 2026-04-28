@@ -2,6 +2,9 @@ name: Cross-platform install verification
 
 on:
   workflow_dispatch:
+  schedule:
+    # Daily 05:17 Asia/Shanghai. Catches install drift before the workday starts.
+    - cron: "17 21 * * *"
   push:
     branches: [main]
     paths:
@@ -130,3 +133,32 @@ jobs:
           if (Test-Path "$env:USERPROFILE\.agents\skills\ops-hiring-workflow") {
             throw "Default install should not install ops-hiring-workflow"
           }
+
+  notify-failure:
+    name: Notify Feishu on failure
+    needs: [macos-install, windows-install]
+    if: ${{ always() && (needs.macos-install.result == 'failure' || needs.macos-install.result == 'cancelled' || needs.windows-install.result == 'failure' || needs.windows-install.result == 'cancelled') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Feishu alert
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_NOTIFY_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAC_RESULT: ${{ needs.macos-install.result }}
+          WIN_RESULT: ${{ needs.windows-install.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FEISHU_WEBHOOK:-}" ]; then
+            echo "FEISHU_NOTIFY_WEBHOOK is not configured; skip notification."
+            exit 0
+          fi
+          MESSAGE="⚠️ Velotric Skills 每日安装巡检失败
+
+          仓库：${GITHUB_REPOSITORY}
+          macOS：${MAC_RESULT}
+          Windows：${WIN_RESULT}
+          时间：$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+
+          查看 Actions：${RUN_URL}"
+          PAYLOAD=$(jq -n --arg t "$MESSAGE" '{msg_type: "text", content: {text: $t}}')
+          curl -sS -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$FEISHU_WEBHOOK" | head -200
