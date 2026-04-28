@@ -27,6 +27,7 @@ https://raw.githubusercontent.com/velotricai/skills-install/main/install-guide.m
 装好后，跟你的 AI 说自然语言即可：
 
 - "公司有什么 skill" — 浏览
+- "公司有什么 skill？我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库" — 高层 owner 首次认领自己的 skill
 - "帮我做个 skill 看周报" — 创建
 - "用 ops-hiring-workflow 帮我筛这批简历" — 直接调用业务 skill
 - "velotric 有更新吗" — 同步新版本
