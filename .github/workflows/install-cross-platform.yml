@@ -47,6 +47,9 @@ jobs:
           grep -q "AI 安装向导协议" install-guide.md
           grep -q "一次一个动作" install-guide.md
           grep -q "不要索要 token" install-guide.md
+          grep -q "winget install --id GitHub.cli -e --source winget" install-guide.md
+          grep -q "GitHub CLI 已安装但当前会话找不到 gh.exe" install-guide.md
+          grep -q "普通用户安装流程禁止引导创建 classic PAT" install-guide.md
 
       - name: Clone private velotric-skills repo
         shell: bash
@@ -166,6 +169,9 @@ jobs:
           Select-String -Path "install-guide.md" -Pattern "AI 安装向导协议" -SimpleMatch | Out-Null
           Select-String -Path "install-guide.md" -Pattern "一次一个动作" -SimpleMatch | Out-Null
           Select-String -Path "install-guide.md" -Pattern "不要索要 token" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "winget install --id GitHub.cli -e --source winget" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "GitHub CLI 已安装但当前会话找不到 gh.exe" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "普通用户安装流程禁止引导创建 classic PAT" -SimpleMatch | Out-Null
 
       - name: Clone private velotric-skills repo
         shell: pwsh
