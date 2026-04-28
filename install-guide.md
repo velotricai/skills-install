@@ -1,10 +1,46 @@
-# Velotric Skills 安装指南（v0.8.5）
+# Velotric Skills 安装指南（v0.8.6）
 
 以下步骤面向 AI Agent。macOS 是主支持路径；Windows 10/11 现在有实验性 PowerShell 路径，需要真机确认 Codex / Claude Code 的 skill 加载目录。
 
 > ⚠️ AI 注意：每一步开始前**用一句话告诉用户在做什么、为什么、还有多久**，不要闷头跑命令。这是建立信任的关键。
 
+> ⚠️ 更重要：不要把这份指南整段丢给用户读。用户只需要完成当前一个动作；AI 必须自己读指南、自己执行命令、自己判断下一步。
+
 ---
+
+## 第 -2 步：AI 安装向导协议
+
+AI 必须按"一次一个动作"推进，不要让用户自己理解全流程。
+
+每个需要用户配合的步骤都按这个格式说：
+
+```text
+我现在需要你做一件事：<动作>。
+为什么：<一句话原因>。
+完成标志：<你看到什么就算完成>。
+做完告诉我"好了"，我会继续检查。
+```
+
+执行规则：
+
+1. **不要让用户读步骤**：AI 自己读本文档，用户只看当前动作。
+2. **不要连续抛多个要求**：注册、登录、OAuth、收邮件、重启 AI 要拆开。
+3. **每步都要验证**：用户说"好了"后，用命令确认，再继续下一步。
+4. **不要要求用户解释技术错误**：失败时跑检查命令，给用户一个下一动作。
+5. **不要索要 token**：GitHub token / PAT 不得进入 AI 聊天、飞书、文档或截图。
+6. **用户卡住时降级为最小动作**：例如"只点 Authorize"，不要解释 OAuth 原理。
+
+用户必须亲手完成的只有这些系统级动作：
+
+| 动作 | AI 应该怎么说 |
+|---|---|
+| GitHub OAuth | "浏览器会打开 GitHub，请点 Authorize。不要把 token 发给我。" |
+| GitHub 组织邀请 | "打开邮箱，点 GitHub 邀请里的 Accept invitation。" |
+| macOS 密码 / sudo | "输入你的 Mac 登录密码，屏幕不显示字符是正常的。" |
+| Windows UAC / winget | "Windows 会弹确认框，请点允许或安装。" |
+| 重启 AI | "关闭当前 Codex / Claude Code 窗口后重新打开，让它加载 skill。" |
+
+如果用户说"我不知道做完没有"，AI 直接重新运行当前步骤的验证命令，不要让用户猜。
 
 ## 第 -1 步：先识别操作系统
 
@@ -22,7 +58,7 @@ uname -s 2>/dev/null || ver
 
 ## 第 0 步：确认入组（最快路径）
 
-跟用户说：
+先尝试自己检查，不要先让用户读说明。跟用户说：
 
 > "你需要是 velotricai GitHub 组织的成员才能装公司 skill。我先帮你检查并申请——只要 30 秒。"
 
@@ -37,17 +73,35 @@ gh api /orgs/velotricai/members/$USERNAME --silent
 ```
 返回 204 → 跳到第 1 步。
 
-**情况 B：USERNAME 拿到但不是成员 → 自动申请入组**
+**情况 B：USERNAME 拿到但不是成员 → 引导用户提交申请**
 
 直接给用户一个**预填好的 issue URL**：
 
-> "我给你打开一个加入申请表单——你不用填任何东西，**直接点 Submit Issue**：
+> "我现在需要你做一件事：打开这个加入申请表单，直接点底部 **Submit Issue**。
+>
+> 为什么：私有 skill 仓库只对 velotricai 组织成员开放。
+>
+> 完成标志：页面上出现一个新的 issue，或看到机器人评论。
 >
 > https://github.com/velotricai/skills-install/issues/new?template=join-org.yml&title=%5B%E5%8A%A0%E5%85%A5%E7%94%B3%E8%AF%B7%5D
 >
-> 提交后等 30 秒，机器人自动给你发邀请邮件。
+> 做完告诉我"好了"，我会继续检查。"
+
+用户说"好了"后，AI 等 30 秒，再检查：
+
+```bash
+gh api /orgs/velotricai/members/$USERNAME --silent
+```
+
+如果还不是成员，继续给用户一个动作：
+
+> "我现在需要你做一件事：打开 GitHub 注册邮箱，找到 velotricai 的邀请邮件，点 **Accept invitation**。
 >
-> 如果 2 分钟内没收到 issue 评论或邀请邮件，让用户把 GitHub username 发给 perry。"
+> 为什么：提交申请只是发出邀请，必须接受后才有私有仓库权限。
+>
+> 完成标志：GitHub 页面显示你已加入组织。做完告诉我"好了"。"
+
+用户说"好了"后再检查组织成员资格。2 分钟内仍失败，才让用户把 GitHub username 和申请 issue 链接发给平台维护者。
 
 **情况 C：用户还没登录 GitHub / 没安装 gh**
 告诉用户：
@@ -111,11 +165,30 @@ gh auth login --git-protocol https --web
 gh auth setup-git    # 让 git 用 gh 的 token 做 push/pull
 ```
 
-⚠️ 用户配合点：浏览器打开 GitHub 授权页 → **点 Authorize**。
+跟用户说：
+
+> "我现在需要你做一件事：浏览器会打开 GitHub，请点 **Authorize**。
+>
+> 为什么：GitHub CLI 需要得到你本人授权，才能 clone 公司私有仓库。
+>
+> 完成标志：终端显示 Logged in 或我这边能读到你的 GitHub 用户名。
+>
+> 不要把 GitHub token 发给我。做完告诉我'好了'。"
 
 ⚠️ 安全红线：不要把 GitHub token / PAT 粘贴到 AI 聊天、飞书、文档或截图里。`gh auth login` 的授权应该在浏览器或终端里的 GitHub CLI 提示中完成。如果网络或浏览器回传超时，先重试 `gh auth login --git-protocol https --web`，并按命令输出的 device code 到 GitHub 页面完成授权；不要把 token 发给 AI。
 
 如果用户已经把 token 发进聊天或文档，立刻停止继续使用该 token，并让用户去 GitHub 撤销后重新授权。
+
+用户说"好了"后，AI 必须验证：
+
+```bash
+gh auth status
+gh api /user -q .login
+```
+
+如果浏览器授权没有回传，不要让用户生成 token。只给一个动作：
+
+> "这次授权没有回传。我会重新发起登录；如果终端显示 8 位 device code，你只需要复制这个 code 到 GitHub 页面，不要生成 token。"
 
 ---
 
@@ -246,7 +319,7 @@ Get-Content "$env:USERPROFILE\.velotric-skills\installed.txt"
 
 ---
 
-**版本**：v0.8.5
+**版本**：v0.8.6
 **更新**：2026-04-28
 **仓库**：https://github.com/velotricai/velotric-skills（私有，需 org 成员资格）
 **维护**：@PerryChen / @velotricai/platform-maintainers

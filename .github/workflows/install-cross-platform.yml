@@ -43,6 +43,10 @@ jobs:
           grep -q "我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库" install-guide.md
           grep -q "你不需要先懂 Git、YAML 或 PR" install-guide.md
           grep -q "不要把 GitHub token / PAT 粘贴到 AI 聊天" install-guide.md
+          grep -q "不要把这份指南整段丢给用户读" install-guide.md
+          grep -q "AI 安装向导协议" install-guide.md
+          grep -q "一次一个动作" install-guide.md
+          grep -q "不要索要 token" install-guide.md
 
       - name: Clone private velotric-skills repo
         shell: bash
@@ -158,6 +162,10 @@ jobs:
           Select-String -Path "install-guide.md" -Pattern "我是 Adam，下一步怎么把我的 business thinking skill 第一版发到公司仓库" -SimpleMatch | Out-Null
           Select-String -Path "install-guide.md" -Pattern "你不需要先懂 Git、YAML 或 PR" -SimpleMatch | Out-Null
           Select-String -Path "install-guide.md" -Pattern "不要把 GitHub token / PAT 粘贴到 AI 聊天" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "不要把这份指南整段丢给用户读" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "AI 安装向导协议" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "一次一个动作" -SimpleMatch | Out-Null
+          Select-String -Path "install-guide.md" -Pattern "不要索要 token" -SimpleMatch | Out-Null
 
       - name: Clone private velotric-skills repo
         shell: pwsh
